@@ -69,7 +69,7 @@
 
     a {
         color: var(--ac);
-        text-decoration:none
+        text-decoration: none
     }
 
     a:hover {
@@ -157,11 +157,11 @@
     }
 
     .sync-dot.ok {
-        background:#5aaa5a
+        background: #5aaa5a
     }
 
     .sync-dot.err {
-        background:var(--red)
+        background: var(--red)
     }
 
     .sync-dot.loading {
@@ -171,7 +171,7 @@
 
     @keyframes pulse {
         0%, 100% {
-            opacity:1
+            opacity: 1
         }
 
         50% {
@@ -508,7 +508,7 @@
     }
 
     .ico:hover {
-        color:var(--tx)
+        color: var(--tx)
     }
 
     .ico.del:hover {
@@ -553,7 +553,7 @@
     }
 
     .dhero-bar {
-        height:4px
+        height: 4px
     }
 
     .dhero-body {
@@ -1300,80 +1300,13 @@
         color: var(--red)
     }
 
-    #iv-fullscreen {
-        background: #000;
-        touch-action: none;
-        overscroll-behavior: none
-    }
-
-    #iv-fullscreen.fullscreen-native {
-        background: #000
-    }
-
     #iv-img-full {
-        width: auto;
-        height: auto;
-        max-width: 100vw;
-        max-height: 100vh;
+        max-width: 95vw;
+        max-height: 92vh;
         object-fit: contain;
-        border-radius: 0;
+        border-radius: 8px;
         display: block;
-        user-select: none;
-        -webkit-user-select: none;
-        touch-action: none
-    }
-
-    #iv-fullscreen.landscape-view #iv-img-full {
-        width: auto;
-        height: auto;
-        max-width: 100vw;
-        max-height: 100vh;
-        object-fit: contain
-    }
-
-    #iv-fullscreen .iv-close {
-        position: absolute;
-        top: max(14px, env(safe-area-inset-top));
-        right: max(14px, env(safe-area-inset-right));
-        background: rgba(0, 0, 0, .42);
-        border: 1px solid rgba(255, 255, 255, .28);
-        color: white;
-        font-size: 20px;
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        cursor: pointer;
-        z-index: 10000;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: opacity .25s
-    }
-
-    #iv-fullscreen.controls-hidden .iv-close {
-        opacity: 0;
-        pointer-events: none
-    }
-
-    @media (orientation: landscape) {
-        #iv-img-full {
-            width: auto;
-            height: auto;
-            max-width: 100vw;
-            max-height: 100vh;
-            object-fit:contain
-        }
-
-        #iv-fullscreen {
-            padding: 0
-        }
-    }
-
-    @media (orientation: portrait) {
-        #iv-img-full {
-            object-fit: contain;
-            background: #000
-        }
+        user-select: none
     }
 
     .toast {
@@ -1408,7 +1341,7 @@
         align-items: center;
         justify-content: center;
         padding: 20px;
-        overflow-y:auto
+        overflow-y: auto
     }
 
     .notice-modal {
@@ -1419,7 +1352,7 @@
         border: 1px solid var(--line2);
         border-radius: 16px;
         box-shadow: 0 12px 40px rgba(36, 30, 22, .2);
-        padding:28px 30px 24px
+        padding: 28px 30px 24px
     }
 
     .notice-title {
@@ -1428,53 +1361,53 @@
         font-weight: 700;
         color: var(--tx);
         text-align: center;
-        margin-bottom:18px
+        margin-bottom: 18px
     }
 
     .notice-body {
         font-size: 13px;
         line-height: 1.9;
-        color:var(--tx2)
+        color: var(--tx2)
     }
 
     .notice-intro {
-        margin-bottom:10px
+        margin-bottom: 10px
     }
 
     .notice-list {
         margin: 0 0 14px 1.2em;
-        padding:0
+        padding: 0
     }
 
     .notice-list li {
         padding-left: 4px;
-        margin-bottom:7px
+        margin-bottom: 7px
     }
 
     .notice-example {
         margin-top: -5px;
         margin-bottom: 9px;
         padding-left: 1.1em;
-        color:var(--tx3)
+        color: var(--tx3)
     }
 
     .notice-thanks {
         text-align: center;
         margin-top: 16px;
         color: var(--tx);
-        font-weight:500
+        font-weight: 500
     }
 
     .notice-source {
         text-align: center;
         margin-top: 7px;
         font-size: 11px;
-        color:var(--tx3)
+        color: var(--tx3)
     }
 
     .notice-source a {
         color: var(--ac);
-        word-break:break-all
+        word-break: break-all
     }
 
     .notice-confirm {
@@ -1487,7 +1420,7 @@
         border-radius: 9px;
         padding: 10px 22px;
         font-size: 13px;
-        cursor:pointer
+        cursor: pointer
     }
 
     .notice-confirm:hover {
@@ -1504,11 +1437,11 @@
     }
 
     ::-webkit-scrollbar {
-        width:4px
+        width: 4px
     }
 
     ::-webkit-scrollbar-track {
-        background:var(--bg3)
+        background: var(--bg3)
     }
 
     ::-webkit-scrollbar-thumb {
@@ -1521,7 +1454,7 @@
         border-top: 1px solid var(--line);
         padding: 18px 16px 24px;
         text-align: center;
-        margin-top:28px
+        margin-top: 28px
     }
 
     .site-footer-links {
@@ -1531,16 +1464,16 @@
         gap: 8px;
         flex-wrap: wrap;
         font-size: 11px;
-        color:var(--tx3)
+        color: var(--tx3)
     }
 
     .site-footer-links a {
         color: var(--tx3);
-        cursor:pointer
+        cursor: pointer
     }
 
     .site-footer-links a:hover {
-        color:var(--ac)
+        color: var(--ac)
     }
 
     .site-footer-sep {
@@ -1548,7 +1481,7 @@
     }
 
     body.info-open {
-        overflow:hidden
+        overflow: hidden
     }
 
     body.info-open .hdr, body.info-open .nav, body.info-open #map-wrap, body.info-open #tag-bar, body.info-open #list-pg, body.info-open .detail-pg, body.info-open .tag-nav, body.info-open .site-footer {
@@ -1562,11 +1495,11 @@
         z-index: 10000;
         overflow-y: auto;
         background: var(--bg);
-        padding:24px 16px 50px
+        padding: 24px 16px 50px
     }
 
     .info-page.show {
-        display:block
+        display: block
     }
 
     .info-inner {
@@ -1578,7 +1511,7 @@
         border-radius: 14px;
         padding: 28px 30px 38px;
         box-sizing: border-box;
-        box-shadow:0 1px 4px rgba(36, 30, 22, .04)
+        box-shadow: 0 1px 4px rgba(36, 30, 22, .04)
     }
 
     .info-back {
@@ -1588,11 +1521,11 @@
         font-size: 12px;
         cursor: pointer;
         padding: 0;
-        margin:0 0 26px
+        margin: 0 0 26px
     }
 
     .info-back:hover {
-        color:var(--ac)
+        color: var(--ac)
     }
 
     .info-title {
@@ -1600,41 +1533,41 @@
         font-size: 25px;
         font-weight: 700;
         color: var(--tx);
-        margin-bottom:28px
+        margin-bottom: 28px
     }
 
     .info-section {
-        margin-bottom:30px
+        margin-bottom: 30px
     }
 
     .info-section h2 {
         font-family: 'Shippori Mincho', serif;
         font-size: 16px;
         margin: 0 0 12px;
-        color:var(--tx)
+        color: var(--tx)
     }
 
     .info-section p {
         font-size: 13px;
         line-height: 1.95;
         color: var(--tx2);
-        margin:0 0 12px
+        margin: 0 0 12px
     }
 
     @media (max-width: 600px) {
         .info-page {
-            padding:0
+            padding: 0
         }
 
         .info-inner {
             min-height: 100vh;
             border: none;
             border-radius: 0;
-            padding:24px 20px 40px
+            padding: 24px 20px 40px
         }
 
         .info-title {
-            font-size:22px
+            font-size: 22px
         }
 
         .info-section p {
@@ -1665,12 +1598,18 @@
                     <li>請避免直接向各設施或當地居民詢問「本作品中登場的景點」等相關問題。</li>
                 </ul>
                 <div class="notice-thanks">
-                    請大家遵守禮儀，創造愉快的旅行回憶。
+
+                                        請大家遵守禮儀，創造愉快的旅行回憶。
+                                        
                     <br>
-                    感謝各位的配合與理解。
+
+                                        感謝各位的配合與理解。
+                                    
                 </div>
                 <div class="notice-source">
-                    官網原文：
+
+                                        官網原文：
+                                        
                     <a href="https://18trip.jp/news/info/551/" target="_blank" rel="noopener">https://18trip.jp/news/info/551/</a>
                 </div>
             </div>
@@ -1678,9 +1617,13 @@
         </div>
     </div>
     <div class="setup-banner" id="setup-banner">
-        ⚠️ 目前為
+
+                ⚠️ 目前為
+                
         <b>本機模式</b>
-        。
+
+                。
+                
         <a href="#" onclick="openOv('fb-setup-modal');return false">設定多裝置同步 →</a>
     </div>
     <header class="hdr">
@@ -1807,8 +1750,8 @@
             </div>
         </div>
     </div>
-    <div id="iv-fullscreen" style="display:none;position:fixed;inset:0;background:#000;z-index:9999;align-items:center;justify-content:center">
-        <button class="iv-close" onclick="event.stopPropagation();closeImgFull()" aria-label="關閉全螢幕">✕</button>
+    <div id="iv-fullscreen" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:9999;align-items:center;justify-content:center">
+        <button onclick="closeImgFull()" style="position:absolute;top:14px;right:18px;background:rgba(255,255,255,.12);border:none;color:white;font-size:22px;width:38px;height:38px;border-radius:50%;cursor:pointer;z-index:10000">✕</button>
         <img id="iv-img-full" src="" alt="">
     </div>
     <div class="toast" id="toast">已儲存 ✓</div>
@@ -3401,72 +3344,17 @@
         save();
         renderDetail();
     }
-    var _imgFsTimer = null;
-    function _setImgFsOrientation() {
-        var ov = document.getElementById('iv-fullscreen');
-        if (!ov)
-            return;
-        ov.classList.toggle('landscape-view', window.innerWidth > window.innerHeight);
-    }
-    function _hideImgFsControls() {
-        var ov = document.getElementById('iv-fullscreen');
-        if (ov)
-            ov.classList.add('controls-hidden');
-    }
-    function _showImgFsControls() {
-        var ov = document.getElementById('iv-fullscreen');
-        if (!ov)
-            return;
-        ov.classList.remove('controls-hidden');
-        clearTimeout(_imgFsTimer);
-        _imgFsTimer = setTimeout(_hideImgFsControls, 1800);
-    }
     function viewImg(src) {
-        var ov = document.getElementById('iv-fullscreen'),
-            img = document.getElementById('iv-img-full');
-        if (!ov || !img)
-            return;
-        img.src = src;
-        ov.style.display = 'flex';
-        ov.classList.remove('controls-hidden');
-        _setImgFsOrientation();
-        document.body.style.overflow = 'hidden';
-        clearTimeout(_imgFsTimer);
-        _imgFsTimer = setTimeout(_hideImgFsControls, 1800);
-        if (ov.requestFullscreen) {
-            ov.requestFullscreen().catch(function() {});
-        }
+        document.getElementById('iv-img-full').src = src;
+        document.getElementById('iv-fullscreen').style.display = 'flex';
     }
     function closeImgFull() {
-        var ov = document.getElementById('iv-fullscreen');
-        if (!ov)
-            return;
-        clearTimeout(_imgFsTimer);
-        if (document.fullscreenElement && document.exitFullscreen)
-            document.exitFullscreen().catch(function() {});
-        ov.style.display = 'none';
-        ov.classList.remove('controls-hidden', 'landscape-view');
+        document.getElementById('iv-fullscreen').style.display = 'none';
         document.getElementById('iv-img-full').src = '';
-        document.body.style.overflow = '';
     }
-    window.addEventListener('resize', _setImgFsOrientation);
-    document.addEventListener('fullscreenchange', function() {
-        var ov = document.getElementById('iv-fullscreen');
-        if (!ov)
-            return;
-        ov.classList.toggle('fullscreen-native', !!document.fullscreenElement);
-        _setImgFsOrientation();
-    });
     document.getElementById('iv-fullscreen').addEventListener('click', function(e) {
-        if (e.target === this) {
+        if (e.target === this)
             closeImgFull();
-            return;
-        }
-        _showImgFsControls();
-    });
-    document.getElementById('iv-img-full').addEventListener('click', function(e) {
-        e.stopPropagation();
-        _showImgFsControls();
     });
 
     // ══ ENTRY MODAL ══
