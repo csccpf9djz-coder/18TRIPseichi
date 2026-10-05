@@ -1300,13 +1300,80 @@
         color: var(--red)
     }
 
+    #iv-fullscreen {
+        background: #000;
+        touch-action: none;
+        overscroll-behavior: none
+    }
+
+    #iv-fullscreen.fullscreen-native {
+        background: #000
+    }
+
     #iv-img-full {
-        max-width: 95vw;
-        max-height: 92vh;
+        width: auto;
+        height: auto;
+        max-width: 100vw;
+        max-height: 100vh;
         object-fit: contain;
-        border-radius: 8px;
+        border-radius: 0;
         display: block;
-        user-select: none
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: none
+    }
+
+    #iv-fullscreen.landscape-view #iv-img-full {
+        width: auto;
+        height: auto;
+        max-width: 100vw;
+        max-height: 100vh;
+        object-fit: contain
+    }
+
+    #iv-fullscreen .iv-close {
+        position: absolute;
+        top: max(14px, env(safe-area-inset-top));
+        right: max(14px, env(safe-area-inset-right));
+        background: rgba(0, 0, 0, .42);
+        border: 1px solid rgba(255, 255, 255, .28);
+        color: white;
+        font-size: 20px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        cursor: pointer;
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: opacity .25s
+    }
+
+    #iv-fullscreen.controls-hidden .iv-close {
+        opacity: 0;
+        pointer-events: none
+    }
+
+    @media (orientation: landscape) {
+        #iv-img-full {
+            width: auto;
+            height: auto;
+            max-width: 100vw;
+            max-height: 100vh;
+            object-fit:contain
+        }
+
+        #iv-fullscreen {
+            padding: 0
+        }
+    }
+
+    @media (orientation: portrait) {
+        #iv-img-full {
+            object-fit: contain;
+            background: #000
+        }
     }
 
     .toast {
@@ -1740,8 +1807,8 @@
             </div>
         </div>
     </div>
-    <div id="iv-fullscreen" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:9999;align-items:center;justify-content:center">
-        <button onclick="closeImgFull()" style="position:absolute;top:14px;right:18px;background:rgba(255,255,255,.12);border:none;color:white;font-size:22px;width:38px;height:38px;border-radius:50%;cursor:pointer;z-index:10000">✕</button>
+    <div id="iv-fullscreen" style="display:none;position:fixed;inset:0;background:#000;z-index:9999;align-items:center;justify-content:center">
+        <button class="iv-close" onclick="event.stopPropagation();closeImgFull()" aria-label="關閉全螢幕">✕</button>
         <img id="iv-img-full" src="" alt="">
     </div>
     <div class="toast" id="toast">已儲存 ✓</div>
@@ -3334,17 +3401,72 @@
         save();
         renderDetail();
     }
+    var _imgFsTimer = null;
+    function _setImgFsOrientation() {
+        var ov = document.getElementById('iv-fullscreen');
+        if (!ov)
+            return;
+        ov.classList.toggle('landscape-view', window.innerWidth > window.innerHeight);
+    }
+    function _hideImgFsControls() {
+        var ov = document.getElementById('iv-fullscreen');
+        if (ov)
+            ov.classList.add('controls-hidden');
+    }
+    function _showImgFsControls() {
+        var ov = document.getElementById('iv-fullscreen');
+        if (!ov)
+            return;
+        ov.classList.remove('controls-hidden');
+        clearTimeout(_imgFsTimer);
+        _imgFsTimer = setTimeout(_hideImgFsControls, 1800);
+    }
     function viewImg(src) {
-        document.getElementById('iv-img-full').src = src;
-        document.getElementById('iv-fullscreen').style.display = 'flex';
+        var ov = document.getElementById('iv-fullscreen'),
+            img = document.getElementById('iv-img-full');
+        if (!ov || !img)
+            return;
+        img.src = src;
+        ov.style.display = 'flex';
+        ov.classList.remove('controls-hidden');
+        _setImgFsOrientation();
+        document.body.style.overflow = 'hidden';
+        clearTimeout(_imgFsTimer);
+        _imgFsTimer = setTimeout(_hideImgFsControls, 1800);
+        if (ov.requestFullscreen) {
+            ov.requestFullscreen().catch(function() {});
+        }
     }
     function closeImgFull() {
-        document.getElementById('iv-fullscreen').style.display = 'none';
+        var ov = document.getElementById('iv-fullscreen');
+        if (!ov)
+            return;
+        clearTimeout(_imgFsTimer);
+        if (document.fullscreenElement && document.exitFullscreen)
+            document.exitFullscreen().catch(function() {});
+        ov.style.display = 'none';
+        ov.classList.remove('controls-hidden', 'landscape-view');
         document.getElementById('iv-img-full').src = '';
+        document.body.style.overflow = '';
     }
+    window.addEventListener('resize', _setImgFsOrientation);
+    document.addEventListener('fullscreenchange', function() {
+        var ov = document.getElementById('iv-fullscreen');
+        if (!ov)
+            return;
+        ov.classList.toggle('fullscreen-native', !!document.fullscreenElement);
+        _setImgFsOrientation();
+    });
     document.getElementById('iv-fullscreen').addEventListener('click', function(e) {
-        if (e.target === this)
+        if (e.target === this) {
             closeImgFull();
+            return;
+        }
+        _showImgFsControls();
+    });
+    document.getElementById('iv-img-full').addEventListener('click', function(e) {
+        e.stopPropagation();
+        _showImgFsControls();
     });
 
     // ══ ENTRY MODAL ══
