@@ -675,12 +675,15 @@
 
     .sc-drag {
         color: var(--tx3);
-        opacity: .4;
-        font-size: 16px;
+        opacity: .65;
+        font-size: 18px;
         cursor: grab;
         flex-shrink: 0;
-        padding-top: 3px;
-        user-select: none
+        padding: 5px 8px 5px 2px;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: none;
+        flex-shrink: 0
     }
 
     .sc-name-wrap {
@@ -1661,7 +1664,7 @@
                 </ul>
                 <div class="notice-example">例：堵住道路或妨礙通行的行為、喧鬧或造成周遭人士困擾的行為、說出讓周遭人士聽了感到不快的言論⋯⋯等等。</div>
                 <ul class="notice-list">
-                    <li>部分場所對拍照以及進場有所限制，請務必先確認各設施景點的相關規定再前往。</li>
+                    <li>部分場所對拍照以及出入有所限制，請務必先確認各設施景點的相關規定再前往。</li>
                     <li>請避免直接向各設施或當地居民詢問「本作品中登場的景點」等相關問題。</li>
                 </ul>
                 <div class="notice-thanks">
@@ -1687,7 +1690,11 @@
         <div class="hdr-inner">
             <div>
                 <div class="hdr-title">18TRIP 聖地巡禮</div>
-                <div class="hdr-sub">⚠ 內容僅供參考，如有誤請見諒。</div>
+                <div class="hdr-sub">
+                    ⚠ 本網站為粉絲自製的
+                    <strong>非官方網站</strong>
+                    。內容僅供參考，如有誤請見諒。
+                </div>
             </div>
             <div class="hdr-right">
                 <div class="sync-badge" id="sync-badge" style="display:none">
@@ -1819,6 +1826,7 @@
     var fbRef = null;
     // 記錄本機送出的同步版本，避免 Firebase 回傳自己的寫入時重新繪製畫面。
     var _localWriteVersions = {};
+    var _pendingRemoteData = null;
     var _loadTO = setTimeout(function() {
         hideLoading('同步逾時，使用本機資料');
         renderList();
@@ -1852,41 +1860,14 @@
                     setSyncUI('ok', '已同步 ' + getTaipeiTime());
                     return;
                 }
-                if (remote.db)
-                    db = Array.isArray(remote.db) ? remote.db : Object.values(remote.db);
-                if (remote.cats)
-                    CATS_LIST = Array.isArray(remote.cats) ? remote.cats : Object.values(remote.cats);
-                db.forEach(function(e) {
-                    if (!e.cat && e.band)
-                        e.cat = e.band;
-                    if (!Array.isArray(e.sections))
-                        e.sections = e.sections ? Object.values(e.sections) : [];
-                    e.sections.forEach(function(s) {
-                        if (!Array.isArray(s.items))
-                            s.items = s.items ? Object.values(s.items) : [];
-                        s.items.forEach(function(it) {
-                            if (it.lat === undefined)
-                                it.lat = null;
-                            if (it.lng === undefined)
-                                it.lng = null;
-                            if (!it.tags)
-                                it.tags = [];
-                            if (it.source === undefined)
-                                it.source = '';
-                            if (!it.images)
-                                it.images = [];
-                            if (!Array.isArray(it.images))
-                                it.images = Object.values(it.images);
-                            if (it.contributor === undefined)
-                                it.contributor = '';
-                        });
-                    });
-                });
-                normalizeKobeEntry();
-                hideLoading();
-                setSyncUI('ok', '已同步 ' + getTaipeiTime());
-                refresh();
-                rebuildTagBar();
+                // 使用者正在輸入時，不套用遠端快照、不重新繪製畫面，避免輸入框失焦或捲動位置跳動。
+                if (_hasFocusedEditor()) {
+                    _pendingRemoteData = remote;
+                    hideLoading();
+                    setSyncUI('ok', '有待同步更新');
+                    return;
+                }
+                _applyRemoteData(remote);
             }, function(err) {
                 clearTimeout(_loadTO);
                 hideLoading('連線失敗，使用本機資料');
@@ -1898,6 +1879,61 @@
             hideLoading('初始化失敗');
             renderList();
         }
+    });
+
+
+    function _hasFocusedEditor() {
+        var el = document.activeElement;
+        return !!(el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) && !el.readOnly && !el.disabled);
+    }
+    function _applyRemoteData(remote) {
+        if (!remote)
+            return;
+        if (remote.db)
+            db = Array.isArray(remote.db) ? remote.db : Object.values(remote.db);
+        if (remote.cats)
+            CATS_LIST = Array.isArray(remote.cats) ? remote.cats : Object.values(remote.cats);
+        db.forEach(function(e) {
+            if (!e.cat && e.band)
+                e.cat = e.band;
+            if (!Array.isArray(e.sections))
+                e.sections = e.sections ? Object.values(e.sections) : [];
+            e.sections.forEach(function(s) {
+                if (!Array.isArray(s.items))
+                    s.items = s.items ? Object.values(s.items) : [];
+                s.items.forEach(function(it) {
+                    if (it.lat === undefined)
+                        it.lat = null;
+                    if (it.lng === undefined)
+                        it.lng = null;
+                    if (!it.tags)
+                        it.tags = [];
+                    if (it.source === undefined)
+                        it.source = '';
+                    if (!it.images)
+                        it.images = [];
+                    if (!Array.isArray(it.images))
+                        it.images = Object.values(it.images);
+                    if (it.contributor === undefined)
+                        it.contributor = '';
+                });
+            });
+        });
+        normalizeKobeEntry();
+        hideLoading();
+        setSyncUI('ok', '已同步 ' + getTaipeiTime());
+        refresh();
+        rebuildTagBar();
+    }
+    // 輸入框離開焦點後再處理等待中的遠端更新，避免打字時畫面被重畫。
+    document.addEventListener('focusout', function() {
+        setTimeout(function() {
+            if (_pendingRemoteData && !_hasFocusedEditor()) {
+                var pending = _pendingRemoteData;
+                _pendingRemoteData = null;
+                _applyRemoteData(pending);
+            }
+        }, 250);
     });
 
     function getTaipeiTime() {
@@ -2807,52 +2843,91 @@
         jumpTag(1);
     }
 
+    var _pendingTagScroll = null,
+        _tagScrollUntil = 0,
+        _tagScrollTimer = null;
     function jumpTag(delta) {
         if (!_tagTerm || !_tagResults.length)
             return;
         _tagIdx = (_tagIdx + delta + _tagResults.length) % _tagResults.length;
         var r = _tagResults[_tagIdx];
-        // 更新底部導航
         document.getElementById('tag-nav').classList.add('show');
         document.getElementById('tag-nav-info').textContent = '「' + _tagTerm + '」 ' + (_tagIdx + 1) + '/' + _tagResults.length;
-        // 切換 tab
         curTab = r.cat;
         document.querySelectorAll('.nav-btn').forEach(function(b) {
             b.classList.toggle('on', b.dataset.t === curTab);
         });
-        // 若已在此頁，直接捲動
-        if (curId === r.eid) {
-            _scrollToCard(r.iid);
-            applyTagHighlight();
-            rebuildTagBar();
-            return;
+        _pendingTagScroll = r.iid;
+        _tagScrollUntil = Date.now() + 4000;
+        clearTimeout(_tagScrollTimer);
+        setTimeout(function() {
+            if (_pendingTagScroll === r.iid && Date.now() >= _tagScrollUntil)
+                _pendingTagScroll = null;
+        }, 4050);
+        if (curId !== r.eid) {
+            curId = r.eid;
+            curCat = '全部';
+            document.getElementById('list-pg').style.display = 'none';
+            document.getElementById('map-wrap').style.display = 'none';
+            document.getElementById('dp').classList.add('show');
+            renderDetail();
         }
-        // 進入頁面
-        curId = r.eid;
-        curCat = '全部';
-        document.getElementById('list-pg').style.display = 'none';
-        document.getElementById('map-wrap').style.display = 'none';
-        document.getElementById('dp').classList.add('show');
-        renderDetail();
-        setTimeout(function() {
-            _scrollToCard(r.iid);
-        }, 200);
+        applyTagHighlight();
+        rebuildTagBar();
+        // 等 DOM 完成排版後再置中，並在圖片載入造成版面變動時再次校正。
+        _scheduleTagCenter(r.iid);
     }
+    function _scheduleTagCenter(iid) {
+        var tries = 0;
+        function settle() {
+            if (_pendingTagScroll !== iid || Date.now() > _tagScrollUntil)
+                return;
+            var card = document.getElementById('sc-' + iid);
+            if (!card) {
+                if (tries++ < 12)
+                    requestAnimationFrame(settle);
+                return;
+            }
+            card.scrollIntoView({
+                behavior: tries === 0 ? 'smooth' : 'auto',
+                block: 'center',
+                inline: 'nearest'
+            });
+            if (tries === 0) {
+                card.style.transition = 'box-shadow .25s';
+                card.style.boxShadow = '0 0 0 3px var(--ac)';
+                setTimeout(function() {
+                    if (card.isConnected)
+                        card.style.boxShadow = '';
+                }, 1400);
+            }
+            tries++;
+            if (tries < 4) {
+                _tagScrollTimer = setTimeout(function() {
+                    requestAnimationFrame(settle);
+                }, tries === 1 ? 180 : 350);
+            }
 
-    function _scrollToCard(iid) {
-        var card = document.getElementById('sc-' + iid);
-        if (!card)
-            return;
-        card.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center'
+        }
+        // 保留目標 ID 一段時間，讓較晚完成的圖片載入事件也能重新置中。
+        requestAnimationFrame(function() {
+            requestAnimationFrame(settle);
         });
-        card.style.transition = 'box-shadow .25s';
-        card.style.boxShadow = '0 0 0 3px var(--ac)';
-        setTimeout(function() {
-            card.style.boxShadow = '';
-        }, 1400);
     }
+    // 圖片延遲載入完成後，若正在進行標籤跳轉，重新校正目標卡片位置。
+    document.addEventListener('load', function(ev) {
+        var img = ev.target;
+        if (!img || !img.classList || !img.classList.contains('sc-img'))
+            return;
+        var card = img.closest('.sc');
+        if (card && _pendingTagScroll && card.id === 'sc-' + _pendingTagScroll && Date.now() < _tagScrollUntil) {
+            clearTimeout(_tagScrollTimer);
+            _tagScrollTimer = setTimeout(function() {
+                if (_pendingTagScroll === card.id.slice(3))
+                    _scheduleTagCenter(_pendingTagScroll);
+            }, 60);
+        }
+    }, true);
 
     function clearTagFilter() {
         _tagTerm = null;
@@ -3100,12 +3175,15 @@
         curCat = c;
         renderDetail();
     }
+    var _detailImagePriorityCount = 0;
     function renderDetail() {
         var e = fE(curId);
         if (!e) {
             backToList();
             return;
         }
+        // 每次進入景點頁時，優先載入前兩張圖片；標籤跳轉目標圖片則一律優先。
+        _detailImagePriorityCount = 0;
         var color = getColor(e.cat);
         var secs = curCat === '全部' ? e.sections : e.sections.filter(function(s) {
             return s.cat === curCat;
@@ -3143,7 +3221,11 @@
     function spotHTML(it, sid) {
         var imgs = (it.images || []).map(function(img, idx) {
             var del = isEd ? '<button class="sc-img-del" onclick="delImg(\'' + it.id + '\',' + idx + ')">✕</button>' : '';
-            return '<div class="sc-img-wrap"><img class="sc-img" src="' + esc(img) + '" loading="lazy" onclick="viewImg(\'' + esc(img) + '\')" onerror="this.parentElement.style.display=\'none\'" alt="">' + del + '</div>';
+            var isTarget = _pendingTagScroll === it.id;
+            var isPriority = isTarget || _detailImagePriorityCount < 2;
+            _detailImagePriorityCount++;
+            // 只提高目標卡片與前兩張圖片的載入優先權，其他圖片仍延遲載入，避免同時搶占網路。
+            return '<div class="sc-img-wrap"><img class="sc-img" src="' + esc(img) + '" loading="' + (isPriority ? 'eager' : 'lazy') + '" decoding="async" fetchpriority="' + (isPriority ? 'high' : 'auto') + '" onclick="viewImg(\'' + esc(img) + '\')" onerror="this.parentElement.style.display=\'none\'" alt="">' + del + '</div>';
         }).join('');
         var imgAdd = canWrite() ? '<div class="sc-img-add" onclick="trigImg(\'' + it.id + '\')"><span>＋</span> 新增圖片網址</div>' : '';
         var hasPinned = it.lat != null && it.lng != null;
@@ -3311,17 +3393,77 @@
         }
     }
 
-    // ══ DRAG ══
+    // ══ DRAG：桌面原生拖曳＋手機觸控拖曳，支援跨分類 ══
     (function() {
         var _sid = null,
+            _iid = null,
+            _touchCard = null,
+            _touchActive = false,
+            _startX = 0,
+            _startY = 0;
+        function clearDrag() {
+            if (_touchCard)
+                _touchCard.style.opacity = '';
+            document.querySelectorAll('.sc.drag-over').forEach(function(el) {
+                el.classList.remove('drag-over');
+            });
+            _sid = null;
             _iid = null;
+            _touchCard = null;
+            _touchActive = false;
+        }
+        function moveItemTo(target, before) {
+            if (!_iid || !target || !target.dataset.sid || !target.dataset.iid || target.dataset.iid === _iid)
+                return false;
+            var e = fE(curId);
+            if (!e)
+                return false;
+            var from = fS(e, _sid),
+                to = fS(e, target.dataset.sid);
+            if (!from || !to)
+                return false;
+            var fi = from.items.findIndex(function(x) {
+                return x.id === _iid;
+            });
+            var ti = to.items.findIndex(function(x) {
+                return x.id === target.dataset.iid;
+            });
+            if (fi < 0 || ti < 0)
+                return false;
+            var item = from.items.splice(fi, 1)[0];
+            // 同一分類先移除再計算插入位置，避免索引位移造成順序錯誤
+            if (from === to) {
+                ti = to.items.findIndex(function(x) {
+                    return x.id === target.dataset.iid;
+                });
+            }
+            if (ti < 0) {
+                from.items.splice(fi, 0, item);
+                return false;
+            }
+            var rect = target.getBoundingClientRect();
+            var insertBefore = before;
+            if (insertBefore === null || insertBefore === undefined)
+                insertBefore = (rect.height ? (window._dragClientY < rect.top + rect.height / 2) : true);
+            var index = ti + (insertBefore ? 0 : 1);
+            to.items.splice(index, 0, item);
+            save();
+            renderDetail();
+            return true;
+        }
         document.addEventListener('dragstart', function(ev) {
             var sc = ev.target.closest && ev.target.closest('.sc[draggable]');
             if (!sc)
                 return;
             _sid = sc.dataset.sid;
             _iid = sc.dataset.iid;
-            ev.dataTransfer.effectAllowed = 'move';
+            window._dragClientY = ev.clientY;
+            if (ev.dataTransfer) {
+                ev.dataTransfer.effectAllowed = 'move';
+                try {
+                    ev.dataTransfer.setData('text/plain', _iid);
+                } catch (e) {}
+            }
             setTimeout(function() {
                 if (sc)
                     sc.style.opacity = '.4';
@@ -3331,15 +3473,16 @@
             var sc = ev.target.closest && ev.target.closest('.sc');
             if (sc)
                 sc.style.opacity = '';
-            document.querySelectorAll('.sc.drag-over').forEach(function(el) {
-                el.classList.remove('drag-over');
-            });
+            clearDrag();
         });
         document.addEventListener('dragover', function(ev) {
             var sc = ev.target.closest && ev.target.closest('.sc[draggable]');
             if (!sc || sc.dataset.iid === _iid)
                 return;
             ev.preventDefault();
+            window._dragClientY = ev.clientY;
+            if (ev.dataTransfer)
+                ev.dataTransfer.dropEffect = 'move';
             document.querySelectorAll('.sc.drag-over').forEach(function(el) {
                 el.classList.remove('drag-over');
             });
@@ -3355,26 +3498,71 @@
             if (!sc || !_iid || sc.dataset.iid === _iid)
                 return;
             ev.preventDefault();
-            sc.classList.remove('drag-over');
-            if (sc.dataset.sid !== _sid)
+            ev.stopPropagation();
+            var rect = sc.getBoundingClientRect();
+            window._dragClientY = ev.clientY;
+            moveItemTo(sc, ev.clientY < rect.top + rect.height / 2);
+            clearDrag();
+        });
+        // iPhone/iPad 觸控：只從卡片左側的 ⠿ 把手開始拖曳，避免影響卡片內輸入欄位及頁面一般滑動
+        document.addEventListener('touchstart', function(ev) {
+            var handle = ev.target.closest && ev.target.closest('.sc-drag');
+            if (!handle || !isEd)
                 return;
-            var e = fE(curId),
-                s = fS(e, _sid);
-            if (!s)
+            var card = handle.closest('.sc[draggable]');
+            if (!card)
                 return;
-            var fi = -1,
-                ti = -1;
-            for (var i = 0; i < s.items.length; i++) {
-                if (s.items[i].id === _iid)
-                    fi = i;
-                if (s.items[i].id === sc.dataset.iid)
-                    ti = i;
+            var t = ev.touches && ev.touches[0];
+            if (!t)
+                return;
+            _sid = card.dataset.sid;
+            _iid = card.dataset.iid;
+            _touchCard = card;
+            _touchActive = false;
+            _startX = t.clientX;
+            _startY = t.clientY;
+        }, {
+            passive: true
+        });
+        document.addEventListener('touchmove', function(ev) {
+            if (!_iid || !_touchCard)
+                return;
+            var t = ev.touches && ev.touches[0];
+            if (!t)
+                return;
+            if (!_touchActive && Math.abs(t.clientY - _startY) + Math.abs(t.clientX - _startX) < 8)
+                return;
+            _touchActive = true;
+            ev.preventDefault();
+            _touchCard.style.opacity = '.55';
+            var under = document.elementFromPoint(t.clientX, t.clientY);
+            var target = under && under.closest ? under.closest('.sc[draggable]') : null;
+            document.querySelectorAll('.sc.drag-over').forEach(function(el) {
+                el.classList.remove('drag-over');
+            });
+            if (target && target.dataset.iid !== _iid)
+                target.classList.add('drag-over');
+        }, {
+            passive: false
+        });
+        document.addEventListener('touchend', function(ev) {
+            if (!_iid || !_touchCard)
+                return;
+            if (_touchActive) {
+                var t = ev.changedTouches && ev.changedTouches[0];
+                var under = t && document.elementFromPoint(t.clientX, t.clientY);
+                var target = under && under.closest ? under.closest('.sc[draggable]') : null;
+                if (target && target.dataset.iid !== _iid) {
+                    var rect = target.getBoundingClientRect();
+                    moveItemTo(target, t.clientY < rect.top + rect.height / 2);
+                }
             }
-            if (fi < 0 || ti < 0 || fi === ti)
-                return;
-            s.items.splice(ti, 0, s.items.splice(fi, 1)[0]);
-            save();
-            renderDetail();
+            clearDrag();
+        }, {
+            passive: true
+        });
+        document.addEventListener('touchcancel', clearDrag, {
+            passive: true
         });
     })();
 
@@ -3689,7 +3877,7 @@
         document.getElementById('site-footer').style.display = 'none';
         if (type === 'about') {
             title.textContent = '關於本網站';
-            content.innerHTML = `<div class="info-section"><p>本網站是以《18TRIP》聖地巡禮為主題的非官方粉絲網站。</p><p>網站主要整理《18TRIP》中出現或與作品相關的現實地點，包含景點、店家、交通及其他聖地巡禮相關資訊，希望讓想親自走訪這些地方的主任們可以更方便地查找資料及規劃旅程。</p><p>本網站由粉絲製作及維護為非營利性質，與《18TRIP》官方、18TRIP PROJECT 及相關權利人沒有隸屬、授權或合作關係。</p><p>本網站的架設、程式撰寫有使用 AI 輔助。AI 僅作為製作與開發過程中的輔助工具，網站內容及最終呈現仍由網站管理者確認與整理。</p><p>如您對本網站使用 AI 輔助製作的方式、網站內容或其他事項有任何疑慮，請立即關閉本網站並停止使用。</p></div><div class="info-section"><h2>聖地巡禮時的注意事項</h2><p>網站所整理的地點都是現實中實際存在的場所。前往聖地巡禮時，請遵守各場所的規定及當地的相關規範，並尊重當地居民、店家、工作人員及其他遊客。</p><p>請避免造成周遭困擾的行為，例如長時間停留、阻礙通行、大聲喧嘩，或在未經允許的情況下進行拍攝等。</p><p>部分場所可能會有入場、參觀或拍攝方面的限制，實際造訪前請確認各場所最新的官方資訊。</p></div><div class="info-section"><h2>關於網站資訊</h2><p>本網站的資料主要作為聖地巡禮及行程規劃的參考，營業時間、休館日、交通方式、設施規定及其他相關資訊可能隨時變更，因此網站內容不一定能即時反映現況，實際前往前請再次確認景點、店家及相關設施的官方資訊。</p><p>如果發現網站中的資料有錯誤、已經變更或有需要補充的地方，也歡迎至原噗提醒。</p></div><div class="info-section"><h2>著作權及相關權利</h2><p>《18TRIP》之作品名稱、角色名稱、角色設定、世界觀、圖片、文字、標誌及其他原作相關內容，其著作權、商標權及其他相關權利均歸屬於各原權利人，本網站並不主張擁有上述內容的相關權利。</p><p>網站中為聖地巡禮而整理的資訊，主要是為了方便粉絲查找及規劃旅程；若內容涉及第三方的著作、商標或其他受保護的內容，其權利仍歸屬於各原權利人。</p></div><div class="info-section"><h2>關於非官方性質</h2><p>本網站為粉絲自行製作的非官方網站，網站內容並非由《18TRIP》官方或相關權利人提供、審核或認可，也不代表官方立場，如官方資訊與本網站內容有所不同請以官方公布的資訊為準。</p></div><div class="info-section"><h2>聯絡方式</h2><p>若有資料修正、網站內容、著作權或其他相關事項需要聯絡，請透過以下方式聯絡。</p><p>網址：</p><p>若收到權利人或相關人士提出的內容修正或刪除要求，將確認相關內容，並視情況進行修正或下架處理。</p></div>`;
+            content.innerHTML = `<div class="info-section"><p>本網站是以《18TRIP》聖地巡禮為主題的<strong>非官方</strong>網站。</p><p>網站整理《18TRIP》中出現或與作品相關的現實地點，包含景點、店家、交通及其他聖地巡禮相關資訊，希望能讓想親自走訪這些地方的主任們可以更方便地查找資料及規劃旅程。</p><p>本網站的架設、程式撰寫有使用 AI 輔助。AI 僅作為製作與開發過程中的輔助工具，網站內容及最終呈現仍由網站管理者確認與整理。<br>如您對本網站使用 AI 輔助製作的方式、網站內容或其他事項有任何疑慮，請立即關閉本網站並停止使用。</p></div><div class="info-section"><h2>聖地巡禮時的注意事項</h2><p>網站所整理的地點都是現實中實際存在的場所。前往聖地巡禮時，請遵守各場所的規定及當地的相關規範，並尊重當地居民、店家、工作人員及其他遊客。</p><p>請避免造成周遭困擾的行為，例如：長時間停留、阻礙通行、大聲喧嘩，或在未經允許的情況下進行拍攝等。部分場所可能會有入場、參觀或拍攝方面的限制，實際造訪前請確認各場所最新的官方資訊。</p></div><div class="info-section"><h2>關於網站資訊</h2><p>本網站的資料主要作為聖地巡禮及行程規劃的參考，營業時間、休館日、交通方式、設施規定及其他相關資訊可能隨時變更，網站內容無法即時反映現況，實際前往前請再次確認景點、店家及相關設施的官方資訊。</p><p>如果發現網站中的資料有錯誤、已經變更或有需要補充的地方，也歡迎至原噗提醒。</p></div><div class="info-section"><h2>關於非官方性質</h2><p>本網站為粉絲自行製作的<strong>非官方</strong>網站，網站內容並非由《18TRIP》官方或相關權利人提供、審核或認可，也不代表官方立場，如官方資訊與本網站內容有所不同請以官方公布的資訊為準。</p></div><div class="info-section"><h2>聯絡方式</h2><p>若有資料修正、網站內容、著作權或其他相關事項需要聯絡，請透過以下方式聯絡。</p><p>管理者：csccpf9djz<br>聯絡網址：</p><p>若收到權利人或相關人士提出的內容修正或刪除要求，將確認相關內容並進行修正或下架處理。</p></div>`;
         } else {
             title.textContent = '免責事項';
             content.innerHTML = `<div class="info-section"><p>本網站所提供的景點、店家、交通及其他相關資訊，主要作為《18TRIP》聖地巡禮及行程規劃的參考。</p><p>網站內容雖會盡可能確認資料，但無法保證所有資訊在任何時間都完全正確或即時更新。營業時間、休館日、交通方式、入場規定、拍攝規定及其他相關資訊，均可能因實際情況而有所變更。</p><p>實際前往相關場所前，請自行確認該景點、店家、交通業者或其他相關單位所公布的最新資訊。</p></div><div class="info-section"><h2>網站資訊的使用</h2><p>因使用本網站所提供的資訊而產生的行程變更、無法入場、交通問題、費用損失或其他任何損害，本網站不負相關責任。</p></div><div class="info-section"><h2>第三方網站</h2><p>本網站可能連結至景點、店家、交通業者及其他第三方網站。這些網站的內容、服務及資訊均由各網站自行管理，本網站不對其內容或服務負責。</p></div><div class="info-section"><h2>資料修正</h2><p>如果網站中的資訊有錯誤或已經變更，也歡迎透過聯絡方式通知管理者，確認後會視情況進行修正。</p></div>`;
