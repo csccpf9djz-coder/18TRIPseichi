@@ -260,7 +260,7 @@
     }/* map */
 
     #map-wrap {
-        height: 260px;
+        height: 180px;
         position: relative;
         border-bottom: 1px solid var(--line)
     }
@@ -654,6 +654,20 @@
         border-radius: 10px;
         overflow: hidden;
         transition: box-shadow .2s, border-color .2s
+    }/* 手機文字複製：卡片內容允許長按並延伸選取；僅拖曳把手維持不可選取 */
+
+    .sc, .sc * {
+        -webkit-user-select: text;
+        user-select: text;
+    }
+
+    .sc .sc-drag, .sc .sc-acts, .sc button, .sc input[type="checkbox"] {
+        -webkit-user-select: none;
+        user-select: none;
+    }
+
+    .sc .sc-drag {
+        touch-action: none;
     }
 
     .sc.tag-hi {
@@ -950,6 +964,30 @@
 
     .bm:hover {
         border-color: var(--ac)
+    }
+
+    .bm-link {
+        display: flex;
+        flex: 1;
+        min-width: 0;
+        text-decoration: none;
+        color:inherit
+    }
+
+    .link-edit-fields {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 5px;
+        margin: 5px 0 8px;
+        padding-left:8px
+    }
+
+    .bm {
+        align-items:stretch
+    }
+
+    .bm-del {
+        flex-shrink: 0
     }
 
     .bm-ico {
@@ -2497,6 +2535,27 @@
                     it.images = [];
                 if (!Array.isArray(it.images))
                     it.images = Object.values(it.images);
+                // 舊資料自動轉為多筆連結格式，並保留 mapUrl/source 相容欄位。
+                if (!Array.isArray(it.sourceLinks))
+                    it.sourceLinks = it.source ? [{
+                        label: '資料來源',
+                        url: it.source
+                    }] : [];
+                if (!Array.isArray(it.mapLinks))
+                    it.mapLinks = it.mapUrl ? [{
+                        label: it.name + ' — 地圖',
+                        url: it.mapUrl
+                    }] : [];
+                it.sourceLinks = it.sourceLinks.filter(function(x) {
+                    return x && x.url;
+                });
+                it.mapLinks = it.mapLinks.filter(function(x) {
+                    return x && x.url;
+                });
+                if (it.sourceLinks.length)
+                    it.source = it.sourceLinks[0].url;
+                if (it.mapLinks.length)
+                    it.mapUrl = it.mapLinks[0].url;
                 if (it.contributor === undefined)
                     it.contributor = '';
             });
@@ -2574,11 +2633,50 @@
             maxZoom: 19
         }).addTo(mainMap);
         mainMap.setView([36, 136], 4);
-        setTimeout(function() {
-            if (mainMap)
-                mainMap.invalidateSize();
-            renderMainMap();
-        }, 100);
+        // 手機版初次排版、網址列收合及方向改變時，讓 Leaflet 重新量測地圖容器，避免上方出現底色空白。
+        function refreshMainMapSize() {
+            if (!mainMap)
+                return;
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    if (!mainMap)
+                        return;
+                    // 先讓 Leaflet 依目前容器尺寸重新計算，再更新標記視野；
+                    // fitBounds/setView 後再量測一次，避免手機初次載入時瓦片只填滿下半部。
+                    mainMap.invalidateSize({
+                        animate: false,
+                        pan: true
+                    });
+                    renderMainMap();
+                    requestAnimationFrame(function() {
+                        if (!mainMap)
+                            return;
+                        mainMap.invalidateSize({
+                            animate: false,
+                            pan: true
+                        });
+                        mainMap.eachLayer(function(layer) {
+                            if (layer && typeof layer.redraw === 'function')
+                                layer.redraw();
+                        });
+                    });
+                });
+            });
+        }
+        setTimeout(refreshMainMapSize, 100);
+        setTimeout(refreshMainMapSize, 400);
+        window.addEventListener('resize', refreshMainMapSize, {
+            passive: true
+        });
+        window.addEventListener('orientationchange', function() {
+            setTimeout(refreshMainMapSize, 250);
+        }, {
+            passive: true
+        });
+        if (typeof ResizeObserver !== 'undefined') {
+            var mapResizeObserver = new ResizeObserver(refreshMainMapSize);
+            mapResizeObserver.observe(el);
+        }
     }
     function mkPinIcon(color, label) {
         return L.divIcon({
@@ -2803,7 +2901,16 @@
                     return x.id === iid;
                 })[0];
             if (it) {
-                it.mapUrl = v;
+                if (!Array.isArray(it.mapLinks))
+                    it.mapLinks = [];
+                if (it.mapLinks.length)
+                    it.mapLinks[0].url = v;
+                else
+                    it.mapLinks.push({
+                        label: it.name + ' — 地圖',
+                        url: v
+                    });
+                it.mapUrl = it.mapLinks[0].url;
                 save();
                 renderDetail();
             }
@@ -3230,22 +3337,44 @@
         var imgAdd = canWrite() ? '<div class="sc-img-add" onclick="trigImg(\'' + it.id + '\')"><span>＋</span> 新增圖片網址</div>' : '';
         var hasPinned = it.lat != null && it.lng != null;
         var locH = '';
+        var mapLinks = Array.isArray(it.mapLinks) ? it.mapLinks : (it.mapUrl ? [{
+            label: it.name + ' — 地圖',
+            url: it.mapUrl
+        }] : []);
+        var mapRows = mapLinks.filter(function(link) {
+            return link && link.url;
+        }).map(function(link, idx) {
+            var label = link.label || it.name + ' — 地圖';
+            var del = isEd ? '<button class="bm-del" onclick="removeSpotLink(\'' + sid + '\',\'' + it.id + '\',\'mapLinks\',' + idx + ')">✕</button>' : '';
+            var edit = isEd ? '<div class="link-edit-fields"><input class="map-combo-inp" value="' + esc(label) + '" placeholder="連結名稱" onchange="editSpotLink(\'' + sid + '\',\'' + it.id + '\',\'mapLinks\',' + idx + ',\'label\',this.value)"><input class="map-combo-inp" value="' + esc(link.url) + '" placeholder="地圖網址" onchange="editSpotLink(\'' + sid + '\',\'' + it.id + '\',\'mapLinks\',' + idx + ',\'url\',this.value)"></div>' : '';
+            return '<div class="bm"><a class="bm-link" href="' + esc(link.url) + '" target="_blank" rel="noopener"><div class="bm-ico">📍</div><div class="bm-body"><div class="bm-title">' + esc(label) + '</div><div class="bm-url">' + esc(link.url) + '</div></div></a>' + del + '</div>' + edit;
+        }).join('');
         if (isEd) {
-            var bmH = it.mapUrl ? '<a class="bm" href="' + esc(it.mapUrl) + '" target="_blank" rel="noopener"><div class="bm-ico">📍</div><div class="bm-body"><div class="bm-title">' + esc(it.name) + ' — 地圖</div><div class="bm-url">' + esc(it.mapUrl) + '</div></div><button class="bm-del" onclick="event.preventDefault();event.stopPropagation();setItField(\'' + sid + '\',\'' + it.id + '\',\'mapUrl\',\'\')">✕</button></a>' : '';
             var pinH = hasPinned ? '<div class="pin-ok">✓ 已標示座標（' + it.lat.toFixed(4) + ', ' + it.lng.toFixed(4) + '）<button onclick="clearSpotPin(\'' + it.id + '\',\'' + sid + '\')">移除</button></div>' : '';
-            locH = bmH + '<div class="map-combo"><input class="map-combo-inp" id="sli-' + it.id + '" type="text" placeholder="🗺 輸入地名搜尋 / 貼上 Maps URL" oninput="onSpotLocInput(\'' + it.id + '\',\'' + sid + '\');" onblur="handleUrlBlur(\'' + it.id + '\',\'' + sid + '\')" onkeydown="if(event.key===\'Enter\')handleUrlBlur(\'' + it.id + '\',\'' + sid + '\')"><div class="map-combo-drop" id="sld-' + it.id + '"></div></div>' + pinH;
+            locH = mapRows + '<div class="map-combo"><input class="map-combo-inp" id="sli-' + it.id + '" type="text" placeholder="🗺 輸入地名搜尋 / 貼上 Maps URL" oninput="onSpotLocInput(\'' + it.id + '\',\'' + sid + '\');" onblur="handleUrlBlur(\'' + it.id + '\',\'' + sid + '\')" onkeydown="if(event.key===\'Enter\')handleUrlBlur(\'' + it.id + '\',\'' + sid + '\')"><div class="map-combo-drop" id="sld-' + it.id + '"></div></div><button class="ico" style="margin-top:5px" onclick="addSpotLink(\'' + sid + '\',\'' + it.id + '\',\'mapLinks\')">＋ 新增地圖連結</button>' + pinH;
         } else {
-            if (it.mapUrl)
-                locH = '<a class="bm" href="' + esc(it.mapUrl) + '" target="_blank" rel="noopener"><div class="bm-ico">📍</div><div class="bm-body"><div class="bm-title">' + esc(it.name) + ' — 地圖</div><div class="bm-url">' + esc(it.mapUrl) + '</div></div></a>';
+            if (mapRows)
+                locH = mapRows;
             else if (hasPinned)
                 locH = '<div class="pin-ok">📍 地圖已標示</div>';
         }
         var srcH = '';
-        if (isEd) {
-            srcH = it.source ? '<div class="source-row">📎 資料來源：<a href="' + esc(it.source) + '" target="_blank">' + esc(it.source) + '</a><button onclick="setItField(\'' + sid + '\',\'' + it.id + '\',\'source\',\'\')" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:11px;margin-left:4px">✕</button></div>' : '<input class="map-combo-inp" type="text" placeholder="📎 資料來源網址（選填）" onblur="setItField(\'' + sid + '\',\'' + it.id + '\',\'source\',this.value)">';
-        } else if (it.source) {
-            srcH = '<div class="source-row">📎 資料來源：<a href="' + esc(it.source) + '" target="_blank">' + esc(it.source) + '</a></div>';
-        }
+        var sourceLinks = Array.isArray(it.sourceLinks) ? it.sourceLinks : (it.source ? [{
+            label: '資料來源',
+            url: it.source
+        }] : []);
+        var sourceRows = sourceLinks.filter(function(link) {
+            return link && link.url;
+        }).map(function(link, idx) {
+            var label = link.label || '資料來源 ' + (idx + 1);
+            var del = isEd ? '<button onclick="removeSpotLink(\'' + sid + '\',\'' + it.id + '\',\'sourceLinks\',' + idx + ')" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:11px">✕</button>' : '';
+            var edit = isEd ? '<div class="link-edit-fields"><input class="map-combo-inp" value="' + esc(label) + '" placeholder="來源名稱（例如：官方網站）" onchange="editSpotLink(\'' + sid + '\',\'' + it.id + '\',\'sourceLinks\',' + idx + ',\'label\',this.value)"><input class="map-combo-inp" value="' + esc(link.url) + '" placeholder="來源網址" onchange="editSpotLink(\'' + sid + '\',\'' + it.id + '\',\'sourceLinks\',' + idx + ',\'url\',this.value)"></div>' : '';
+            return '<div class="source-row">📎 <a href="' + esc(link.url) + '" target="_blank" rel="noopener">' + esc(label) + '</a>' + del + '</div>' + edit;
+        }).join('');
+        if (isEd)
+            srcH = sourceRows + '<button class="ico" style="margin-top:5px" onclick="addSpotLink(\'' + sid + '\',\'' + it.id + '\',\'sourceLinks\')">＋ 新增資料來源</button>';
+        else if (sourceRows)
+            srcH = '<div class="source-row">資料來源：</div>' + sourceRows;
         var tagsH = '';
         var tagItems = (it.tags || []).map(function(t) {
             var del = isEd ? '<button class="tag-del" onclick="removeTag(\'' + sid + '\',\'' + it.id + '\',\'' + t + '\')">×</button>' : '';
@@ -3294,10 +3423,96 @@
             })[0];
         if (it) {
             it[f] = v;
+            if (f === 'mapUrl') {
+                if (!Array.isArray(it.mapLinks))
+                    it.mapLinks = [];
+                if (v) {
+                    if (it.mapLinks.length)
+                        it.mapLinks[0].url = v;
+                    else
+                        it.mapLinks.push({
+                            label: it.name + ' — 地圖',
+                            url: v
+                        });
+                } else
+                    it.mapLinks = [];
+            }
+            if (f === 'source') {
+                if (!Array.isArray(it.sourceLinks))
+                    it.sourceLinks = [];
+                if (v) {
+                    if (it.sourceLinks.length)
+                        it.sourceLinks[0].url = v;
+                    else
+                        it.sourceLinks.push({
+                            label: '資料來源',
+                            url: v
+                        });
+                } else
+                    it.sourceLinks = [];
+            }
             save();
             if (f === 'mapUrl' || f === 'source')
                 renderDetail();
         }
+    }
+    function addSpotLink(sid, iid, field) {
+        var e = fE(curId),
+            s = fS(e, sid),
+            it = s && s.items.filter(function(x) {
+                return x.id === iid;
+            })[0];
+        if (!it)
+            return;
+        if (!Array.isArray(it[field]))
+            it[field] = [];
+        it[field].push({
+            label: field === 'mapLinks' ? it.name + ' — 地圖' : '資料來源 ' + (it[field].length + 1),
+            url: ''
+        });
+        save();
+        renderDetail();
+    }
+    function editSpotLink(sid, iid, field, index, key, value) {
+        var e = fE(curId),
+            s = fS(e, sid),
+            it = s && s.items.filter(function(x) {
+                return x.id === iid;
+            })[0];
+        if (!it || !Array.isArray(it[field]) || !it[field][index])
+            return;
+        value = (value || '').trim();
+        it[field][index][key] = value;
+        if (field === 'mapLinks')
+            it.mapUrl = (it.mapLinks.find(function(x) {
+                return x.url;
+            }) || {}).url || '';
+        if (field === 'sourceLinks')
+            it.source = (it.sourceLinks.find(function(x) {
+                return x.url;
+            }) || {}).url || '';
+        save();
+        renderDetail();
+    }
+    function removeSpotLink(sid, iid, field, index) {
+        var e = fE(curId),
+            s = fS(e, sid),
+            it = s && s.items.filter(function(x) {
+                return x.id === iid;
+            })[0];
+        if (!it || !Array.isArray(it[field]))
+            return;
+        it[field].splice(index, 1);
+        if (field === 'mapLinks')
+            it.mapUrl = (it.mapLinks.find(function(x) {
+                return x.url;
+            }) || {}).url || '';
+        if (field === 'sourceLinks')
+            it.source = (it.sourceLinks.find(function(x) {
+                return x.url;
+            }) || {}).url || '';
+        save();
+        renderDetail();
     }
     function togMaybe(sid, iid) {
         if (!canWrite())
