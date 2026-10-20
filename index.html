@@ -675,12 +675,15 @@
 
     .sc-drag {
         color: var(--tx3);
-        opacity: .4;
-        font-size: 16px;
+        opacity: .65;
+        font-size: 18px;
         cursor: grab;
         flex-shrink: 0;
-        padding-top: 3px;
-        user-select: none
+        padding: 5px 8px 5px 2px;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: none;
+        flex-shrink: 0
     }
 
     .sc-name-wrap {
@@ -1661,7 +1664,7 @@
                 </ul>
                 <div class="notice-example">例：堵住道路或妨礙通行的行為、喧鬧或造成周遭人士困擾的行為、說出讓周遭人士聽了感到不快的言論⋯⋯等等。</div>
                 <ul class="notice-list">
-                    <li>部分場所對拍照以及進場有所限制，請務必先確認各設施景點的相關規定再前往。</li>
+                    <li>部分場所對拍照以及出入有所限制，請務必先確認各設施景點的相關規定再前往。</li>
                     <li>請避免直接向各設施或當地居民詢問「本作品中登場的景點」等相關問題。</li>
                 </ul>
                 <div class="notice-thanks">
@@ -2840,52 +2843,91 @@
         jumpTag(1);
     }
 
+    var _pendingTagScroll = null,
+        _tagScrollUntil = 0,
+        _tagScrollTimer = null;
     function jumpTag(delta) {
         if (!_tagTerm || !_tagResults.length)
             return;
         _tagIdx = (_tagIdx + delta + _tagResults.length) % _tagResults.length;
         var r = _tagResults[_tagIdx];
-        // 更新底部導航
         document.getElementById('tag-nav').classList.add('show');
         document.getElementById('tag-nav-info').textContent = '「' + _tagTerm + '」 ' + (_tagIdx + 1) + '/' + _tagResults.length;
-        // 切換 tab
         curTab = r.cat;
         document.querySelectorAll('.nav-btn').forEach(function(b) {
             b.classList.toggle('on', b.dataset.t === curTab);
         });
-        // 若已在此頁，直接捲動
-        if (curId === r.eid) {
-            _scrollToCard(r.iid);
-            applyTagHighlight();
-            rebuildTagBar();
-            return;
+        _pendingTagScroll = r.iid;
+        _tagScrollUntil = Date.now() + 4000;
+        clearTimeout(_tagScrollTimer);
+        setTimeout(function() {
+            if (_pendingTagScroll === r.iid && Date.now() >= _tagScrollUntil)
+                _pendingTagScroll = null;
+        }, 4050);
+        if (curId !== r.eid) {
+            curId = r.eid;
+            curCat = '全部';
+            document.getElementById('list-pg').style.display = 'none';
+            document.getElementById('map-wrap').style.display = 'none';
+            document.getElementById('dp').classList.add('show');
+            renderDetail();
         }
-        // 進入頁面
-        curId = r.eid;
-        curCat = '全部';
-        document.getElementById('list-pg').style.display = 'none';
-        document.getElementById('map-wrap').style.display = 'none';
-        document.getElementById('dp').classList.add('show');
-        renderDetail();
-        setTimeout(function() {
-            _scrollToCard(r.iid);
-        }, 200);
+        applyTagHighlight();
+        rebuildTagBar();
+        // 等 DOM 完成排版後再置中，並在圖片載入造成版面變動時再次校正。
+        _scheduleTagCenter(r.iid);
     }
+    function _scheduleTagCenter(iid) {
+        var tries = 0;
+        function settle() {
+            if (_pendingTagScroll !== iid || Date.now() > _tagScrollUntil)
+                return;
+            var card = document.getElementById('sc-' + iid);
+            if (!card) {
+                if (tries++ < 12)
+                    requestAnimationFrame(settle);
+                return;
+            }
+            card.scrollIntoView({
+                behavior: tries === 0 ? 'smooth' : 'auto',
+                block: 'center',
+                inline: 'nearest'
+            });
+            if (tries === 0) {
+                card.style.transition = 'box-shadow .25s';
+                card.style.boxShadow = '0 0 0 3px var(--ac)';
+                setTimeout(function() {
+                    if (card.isConnected)
+                        card.style.boxShadow = '';
+                }, 1400);
+            }
+            tries++;
+            if (tries < 4) {
+                _tagScrollTimer = setTimeout(function() {
+                    requestAnimationFrame(settle);
+                }, tries === 1 ? 180 : 350);
+            }
 
-    function _scrollToCard(iid) {
-        var card = document.getElementById('sc-' + iid);
-        if (!card)
-            return;
-        card.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center'
+        }
+        // 保留目標 ID 一段時間，讓較晚完成的圖片載入事件也能重新置中。
+        requestAnimationFrame(function() {
+            requestAnimationFrame(settle);
         });
-        card.style.transition = 'box-shadow .25s';
-        card.style.boxShadow = '0 0 0 3px var(--ac)';
-        setTimeout(function() {
-            card.style.boxShadow = '';
-        }, 1400);
     }
+    // 圖片延遲載入完成後，若正在進行標籤跳轉，重新校正目標卡片位置。
+    document.addEventListener('load', function(ev) {
+        var img = ev.target;
+        if (!img || !img.classList || !img.classList.contains('sc-img'))
+            return;
+        var card = img.closest('.sc');
+        if (card && _pendingTagScroll && card.id === 'sc-' + _pendingTagScroll && Date.now() < _tagScrollUntil) {
+            clearTimeout(_tagScrollTimer);
+            _tagScrollTimer = setTimeout(function() {
+                if (_pendingTagScroll === card.id.slice(3))
+                    _scheduleTagCenter(_pendingTagScroll);
+            }, 60);
+        }
+    }, true);
 
     function clearTagFilter() {
         _tagTerm = null;
@@ -3133,12 +3175,15 @@
         curCat = c;
         renderDetail();
     }
+    var _detailImagePriorityCount = 0;
     function renderDetail() {
         var e = fE(curId);
         if (!e) {
             backToList();
             return;
         }
+        // 每次進入景點頁時，優先載入前兩張圖片；標籤跳轉目標圖片則一律優先。
+        _detailImagePriorityCount = 0;
         var color = getColor(e.cat);
         var secs = curCat === '全部' ? e.sections : e.sections.filter(function(s) {
             return s.cat === curCat;
@@ -3176,7 +3221,11 @@
     function spotHTML(it, sid) {
         var imgs = (it.images || []).map(function(img, idx) {
             var del = isEd ? '<button class="sc-img-del" onclick="delImg(\'' + it.id + '\',' + idx + ')">✕</button>' : '';
-            return '<div class="sc-img-wrap"><img class="sc-img" src="' + esc(img) + '" loading="lazy" onclick="viewImg(\'' + esc(img) + '\')" onerror="this.parentElement.style.display=\'none\'" alt="">' + del + '</div>';
+            var isTarget = _pendingTagScroll === it.id;
+            var isPriority = isTarget || _detailImagePriorityCount < 2;
+            _detailImagePriorityCount++;
+            // 只提高目標卡片與前兩張圖片的載入優先權，其他圖片仍延遲載入，避免同時搶占網路。
+            return '<div class="sc-img-wrap"><img class="sc-img" src="' + esc(img) + '" loading="' + (isPriority ? 'eager' : 'lazy') + '" decoding="async" fetchpriority="' + (isPriority ? 'high' : 'auto') + '" onclick="viewImg(\'' + esc(img) + '\')" onerror="this.parentElement.style.display=\'none\'" alt="">' + del + '</div>';
         }).join('');
         var imgAdd = canWrite() ? '<div class="sc-img-add" onclick="trigImg(\'' + it.id + '\')"><span>＋</span> 新增圖片網址</div>' : '';
         var hasPinned = it.lat != null && it.lng != null;
@@ -3344,17 +3393,77 @@
         }
     }
 
-    // ══ DRAG ══
+    // ══ DRAG：桌面原生拖曳＋手機觸控拖曳，支援跨分類 ══
     (function() {
         var _sid = null,
+            _iid = null,
+            _touchCard = null,
+            _touchActive = false,
+            _startX = 0,
+            _startY = 0;
+        function clearDrag() {
+            if (_touchCard)
+                _touchCard.style.opacity = '';
+            document.querySelectorAll('.sc.drag-over').forEach(function(el) {
+                el.classList.remove('drag-over');
+            });
+            _sid = null;
             _iid = null;
+            _touchCard = null;
+            _touchActive = false;
+        }
+        function moveItemTo(target, before) {
+            if (!_iid || !target || !target.dataset.sid || !target.dataset.iid || target.dataset.iid === _iid)
+                return false;
+            var e = fE(curId);
+            if (!e)
+                return false;
+            var from = fS(e, _sid),
+                to = fS(e, target.dataset.sid);
+            if (!from || !to)
+                return false;
+            var fi = from.items.findIndex(function(x) {
+                return x.id === _iid;
+            });
+            var ti = to.items.findIndex(function(x) {
+                return x.id === target.dataset.iid;
+            });
+            if (fi < 0 || ti < 0)
+                return false;
+            var item = from.items.splice(fi, 1)[0];
+            // 同一分類先移除再計算插入位置，避免索引位移造成順序錯誤
+            if (from === to) {
+                ti = to.items.findIndex(function(x) {
+                    return x.id === target.dataset.iid;
+                });
+            }
+            if (ti < 0) {
+                from.items.splice(fi, 0, item);
+                return false;
+            }
+            var rect = target.getBoundingClientRect();
+            var insertBefore = before;
+            if (insertBefore === null || insertBefore === undefined)
+                insertBefore = (rect.height ? (window._dragClientY < rect.top + rect.height / 2) : true);
+            var index = ti + (insertBefore ? 0 : 1);
+            to.items.splice(index, 0, item);
+            save();
+            renderDetail();
+            return true;
+        }
         document.addEventListener('dragstart', function(ev) {
             var sc = ev.target.closest && ev.target.closest('.sc[draggable]');
             if (!sc)
                 return;
             _sid = sc.dataset.sid;
             _iid = sc.dataset.iid;
-            ev.dataTransfer.effectAllowed = 'move';
+            window._dragClientY = ev.clientY;
+            if (ev.dataTransfer) {
+                ev.dataTransfer.effectAllowed = 'move';
+                try {
+                    ev.dataTransfer.setData('text/plain', _iid);
+                } catch (e) {}
+            }
             setTimeout(function() {
                 if (sc)
                     sc.style.opacity = '.4';
@@ -3364,15 +3473,16 @@
             var sc = ev.target.closest && ev.target.closest('.sc');
             if (sc)
                 sc.style.opacity = '';
-            document.querySelectorAll('.sc.drag-over').forEach(function(el) {
-                el.classList.remove('drag-over');
-            });
+            clearDrag();
         });
         document.addEventListener('dragover', function(ev) {
             var sc = ev.target.closest && ev.target.closest('.sc[draggable]');
             if (!sc || sc.dataset.iid === _iid)
                 return;
             ev.preventDefault();
+            window._dragClientY = ev.clientY;
+            if (ev.dataTransfer)
+                ev.dataTransfer.dropEffect = 'move';
             document.querySelectorAll('.sc.drag-over').forEach(function(el) {
                 el.classList.remove('drag-over');
             });
@@ -3388,26 +3498,71 @@
             if (!sc || !_iid || sc.dataset.iid === _iid)
                 return;
             ev.preventDefault();
-            sc.classList.remove('drag-over');
-            if (sc.dataset.sid !== _sid)
+            ev.stopPropagation();
+            var rect = sc.getBoundingClientRect();
+            window._dragClientY = ev.clientY;
+            moveItemTo(sc, ev.clientY < rect.top + rect.height / 2);
+            clearDrag();
+        });
+        // iPhone/iPad 觸控：只從卡片左側的 ⠿ 把手開始拖曳，避免影響卡片內輸入欄位及頁面一般滑動
+        document.addEventListener('touchstart', function(ev) {
+            var handle = ev.target.closest && ev.target.closest('.sc-drag');
+            if (!handle || !isEd)
                 return;
-            var e = fE(curId),
-                s = fS(e, _sid);
-            if (!s)
+            var card = handle.closest('.sc[draggable]');
+            if (!card)
                 return;
-            var fi = -1,
-                ti = -1;
-            for (var i = 0; i < s.items.length; i++) {
-                if (s.items[i].id === _iid)
-                    fi = i;
-                if (s.items[i].id === sc.dataset.iid)
-                    ti = i;
+            var t = ev.touches && ev.touches[0];
+            if (!t)
+                return;
+            _sid = card.dataset.sid;
+            _iid = card.dataset.iid;
+            _touchCard = card;
+            _touchActive = false;
+            _startX = t.clientX;
+            _startY = t.clientY;
+        }, {
+            passive: true
+        });
+        document.addEventListener('touchmove', function(ev) {
+            if (!_iid || !_touchCard)
+                return;
+            var t = ev.touches && ev.touches[0];
+            if (!t)
+                return;
+            if (!_touchActive && Math.abs(t.clientY - _startY) + Math.abs(t.clientX - _startX) < 8)
+                return;
+            _touchActive = true;
+            ev.preventDefault();
+            _touchCard.style.opacity = '.55';
+            var under = document.elementFromPoint(t.clientX, t.clientY);
+            var target = under && under.closest ? under.closest('.sc[draggable]') : null;
+            document.querySelectorAll('.sc.drag-over').forEach(function(el) {
+                el.classList.remove('drag-over');
+            });
+            if (target && target.dataset.iid !== _iid)
+                target.classList.add('drag-over');
+        }, {
+            passive: false
+        });
+        document.addEventListener('touchend', function(ev) {
+            if (!_iid || !_touchCard)
+                return;
+            if (_touchActive) {
+                var t = ev.changedTouches && ev.changedTouches[0];
+                var under = t && document.elementFromPoint(t.clientX, t.clientY);
+                var target = under && under.closest ? under.closest('.sc[draggable]') : null;
+                if (target && target.dataset.iid !== _iid) {
+                    var rect = target.getBoundingClientRect();
+                    moveItemTo(target, t.clientY < rect.top + rect.height / 2);
+                }
             }
-            if (fi < 0 || ti < 0 || fi === ti)
-                return;
-            s.items.splice(ti, 0, s.items.splice(fi, 1)[0]);
-            save();
-            renderDetail();
+            clearDrag();
+        }, {
+            passive: true
+        });
+        document.addEventListener('touchcancel', clearDrag, {
+            passive: true
         });
     })();
 
