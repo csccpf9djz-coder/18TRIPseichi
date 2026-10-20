@@ -654,20 +654,6 @@
         border-radius: 10px;
         overflow: hidden;
         transition: box-shadow .2s, border-color .2s
-    }/* 手機文字複製：卡片內容允許長按並延伸選取；僅拖曳把手維持不可選取 */
-
-    .sc, .sc * {
-        -webkit-user-select: text;
-        user-select: text;
-    }
-
-    .sc .sc-drag, .sc .sc-acts, .sc button, .sc input[type="checkbox"] {
-        -webkit-user-select: none;
-        user-select: none;
-    }
-
-    .sc .sc-drag {
-        touch-action: none;
     }
 
     .sc.tag-hi {
@@ -689,15 +675,12 @@
 
     .sc-drag {
         color: var(--tx3);
-        opacity: .65;
-        font-size: 18px;
+        opacity: .4;
+        font-size: 16px;
         cursor: grab;
         flex-shrink: 0;
-        padding: 5px 8px 5px 2px;
-        user-select: none;
-        -webkit-user-select: none;
-        touch-action: none;
-        flex-shrink: 0
+        padding-top: 3px;
+        user-select: none
     }
 
     .sc-name-wrap {
@@ -964,30 +947,6 @@
 
     .bm:hover {
         border-color: var(--ac)
-    }
-
-    .bm-link {
-        display: flex;
-        flex: 1;
-        min-width: 0;
-        text-decoration: none;
-        color:inherit
-    }
-
-    .link-edit-fields {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 5px;
-        margin: 5px 0 8px;
-        padding-left:8px
-    }
-
-    .bm {
-        align-items:stretch
-    }
-
-    .bm-del {
-        flex-shrink: 0
     }
 
     .bm-ico {
@@ -1702,7 +1661,7 @@
                 </ul>
                 <div class="notice-example">例：堵住道路或妨礙通行的行為、喧鬧或造成周遭人士困擾的行為、說出讓周遭人士聽了感到不快的言論⋯⋯等等。</div>
                 <ul class="notice-list">
-                    <li>部分場所對拍照以及出入有所限制，請務必先確認各設施景點的相關規定再前往。</li>
+                    <li>部分場所對拍照以及進場有所限制，請務必先確認各設施景點的相關規定再前往。</li>
                     <li>請避免直接向各設施或當地居民詢問「本作品中登場的景點」等相關問題。</li>
                 </ul>
                 <div class="notice-thanks">
@@ -2535,27 +2494,6 @@
                     it.images = [];
                 if (!Array.isArray(it.images))
                     it.images = Object.values(it.images);
-                // 舊資料自動轉為多筆連結格式，並保留 mapUrl/source 相容欄位。
-                if (!Array.isArray(it.sourceLinks))
-                    it.sourceLinks = it.source ? [{
-                        label: '資料來源',
-                        url: it.source
-                    }] : [];
-                if (!Array.isArray(it.mapLinks))
-                    it.mapLinks = it.mapUrl ? [{
-                        label: it.name + ' — 地圖',
-                        url: it.mapUrl
-                    }] : [];
-                it.sourceLinks = it.sourceLinks.filter(function(x) {
-                    return x && x.url;
-                });
-                it.mapLinks = it.mapLinks.filter(function(x) {
-                    return x && x.url;
-                });
-                if (it.sourceLinks.length)
-                    it.source = it.sourceLinks[0].url;
-                if (it.mapLinks.length)
-                    it.mapUrl = it.mapLinks[0].url;
                 if (it.contributor === undefined)
                     it.contributor = '';
             });
@@ -2633,50 +2571,11 @@
             maxZoom: 19
         }).addTo(mainMap);
         mainMap.setView([36, 136], 4);
-        // 手機版初次排版、網址列收合及方向改變時，讓 Leaflet 重新量測地圖容器，避免上方出現底色空白。
-        function refreshMainMapSize() {
-            if (!mainMap)
-                return;
-            requestAnimationFrame(function() {
-                requestAnimationFrame(function() {
-                    if (!mainMap)
-                        return;
-                    // 先讓 Leaflet 依目前容器尺寸重新計算，再更新標記視野；
-                    // fitBounds/setView 後再量測一次，避免手機初次載入時瓦片只填滿下半部。
-                    mainMap.invalidateSize({
-                        animate: false,
-                        pan: true
-                    });
-                    renderMainMap();
-                    requestAnimationFrame(function() {
-                        if (!mainMap)
-                            return;
-                        mainMap.invalidateSize({
-                            animate: false,
-                            pan: true
-                        });
-                        mainMap.eachLayer(function(layer) {
-                            if (layer && typeof layer.redraw === 'function')
-                                layer.redraw();
-                        });
-                    });
-                });
-            });
-        }
-        setTimeout(refreshMainMapSize, 100);
-        setTimeout(refreshMainMapSize, 400);
-        window.addEventListener('resize', refreshMainMapSize, {
-            passive: true
-        });
-        window.addEventListener('orientationchange', function() {
-            setTimeout(refreshMainMapSize, 250);
-        }, {
-            passive: true
-        });
-        if (typeof ResizeObserver !== 'undefined') {
-            var mapResizeObserver = new ResizeObserver(refreshMainMapSize);
-            mapResizeObserver.observe(el);
-        }
+        setTimeout(function() {
+            if (mainMap)
+                mainMap.invalidateSize();
+            renderMainMap();
+        }, 100);
     }
     function mkPinIcon(color, label) {
         return L.divIcon({
@@ -2901,16 +2800,7 @@
                     return x.id === iid;
                 })[0];
             if (it) {
-                if (!Array.isArray(it.mapLinks))
-                    it.mapLinks = [];
-                if (it.mapLinks.length)
-                    it.mapLinks[0].url = v;
-                else
-                    it.mapLinks.push({
-                        label: it.name + ' — 地圖',
-                        url: v
-                    });
-                it.mapUrl = it.mapLinks[0].url;
+                it.mapUrl = v;
                 save();
                 renderDetail();
             }
@@ -2950,91 +2840,52 @@
         jumpTag(1);
     }
 
-    var _pendingTagScroll = null,
-        _tagScrollUntil = 0,
-        _tagScrollTimer = null;
     function jumpTag(delta) {
         if (!_tagTerm || !_tagResults.length)
             return;
         _tagIdx = (_tagIdx + delta + _tagResults.length) % _tagResults.length;
         var r = _tagResults[_tagIdx];
+        // 更新底部導航
         document.getElementById('tag-nav').classList.add('show');
         document.getElementById('tag-nav-info').textContent = '「' + _tagTerm + '」 ' + (_tagIdx + 1) + '/' + _tagResults.length;
+        // 切換 tab
         curTab = r.cat;
         document.querySelectorAll('.nav-btn').forEach(function(b) {
             b.classList.toggle('on', b.dataset.t === curTab);
         });
-        _pendingTagScroll = r.iid;
-        _tagScrollUntil = Date.now() + 4000;
-        clearTimeout(_tagScrollTimer);
-        setTimeout(function() {
-            if (_pendingTagScroll === r.iid && Date.now() >= _tagScrollUntil)
-                _pendingTagScroll = null;
-        }, 4050);
-        if (curId !== r.eid) {
-            curId = r.eid;
-            curCat = '全部';
-            document.getElementById('list-pg').style.display = 'none';
-            document.getElementById('map-wrap').style.display = 'none';
-            document.getElementById('dp').classList.add('show');
-            renderDetail();
-        }
-        applyTagHighlight();
-        rebuildTagBar();
-        // 等 DOM 完成排版後再置中，並在圖片載入造成版面變動時再次校正。
-        _scheduleTagCenter(r.iid);
-    }
-    function _scheduleTagCenter(iid) {
-        var tries = 0;
-        function settle() {
-            if (_pendingTagScroll !== iid || Date.now() > _tagScrollUntil)
-                return;
-            var card = document.getElementById('sc-' + iid);
-            if (!card) {
-                if (tries++ < 12)
-                    requestAnimationFrame(settle);
-                return;
-            }
-            card.scrollIntoView({
-                behavior: tries === 0 ? 'smooth' : 'auto',
-                block: 'center',
-                inline: 'nearest'
-            });
-            if (tries === 0) {
-                card.style.transition = 'box-shadow .25s';
-                card.style.boxShadow = '0 0 0 3px var(--ac)';
-                setTimeout(function() {
-                    if (card.isConnected)
-                        card.style.boxShadow = '';
-                }, 1400);
-            }
-            tries++;
-            if (tries < 4) {
-                _tagScrollTimer = setTimeout(function() {
-                    requestAnimationFrame(settle);
-                }, tries === 1 ? 180 : 350);
-            }
-
-        }
-        // 保留目標 ID 一段時間，讓較晚完成的圖片載入事件也能重新置中。
-        requestAnimationFrame(function() {
-            requestAnimationFrame(settle);
-        });
-    }
-    // 圖片延遲載入完成後，若正在進行標籤跳轉，重新校正目標卡片位置。
-    document.addEventListener('load', function(ev) {
-        var img = ev.target;
-        if (!img || !img.classList || !img.classList.contains('sc-img'))
+        // 若已在此頁，直接捲動
+        if (curId === r.eid) {
+            _scrollToCard(r.iid);
+            applyTagHighlight();
+            rebuildTagBar();
             return;
-        var card = img.closest('.sc');
-        if (card && _pendingTagScroll && card.id === 'sc-' + _pendingTagScroll && Date.now() < _tagScrollUntil) {
-            clearTimeout(_tagScrollTimer);
-            _tagScrollTimer = setTimeout(function() {
-                if (_pendingTagScroll === card.id.slice(3))
-                    _scheduleTagCenter(_pendingTagScroll);
-            }, 60);
         }
-    }, true);
+        // 進入頁面
+        curId = r.eid;
+        curCat = '全部';
+        document.getElementById('list-pg').style.display = 'none';
+        document.getElementById('map-wrap').style.display = 'none';
+        document.getElementById('dp').classList.add('show');
+        renderDetail();
+        setTimeout(function() {
+            _scrollToCard(r.iid);
+        }, 200);
+    }
+
+    function _scrollToCard(iid) {
+        var card = document.getElementById('sc-' + iid);
+        if (!card)
+            return;
+        card.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+        });
+        card.style.transition = 'box-shadow .25s';
+        card.style.boxShadow = '0 0 0 3px var(--ac)';
+        setTimeout(function() {
+            card.style.boxShadow = '';
+        }, 1400);
+    }
 
     function clearTagFilter() {
         _tagTerm = null;
@@ -3282,15 +3133,12 @@
         curCat = c;
         renderDetail();
     }
-    var _detailImagePriorityCount = 0;
     function renderDetail() {
         var e = fE(curId);
         if (!e) {
             backToList();
             return;
         }
-        // 每次進入景點頁時，優先載入前兩張圖片；標籤跳轉目標圖片則一律優先。
-        _detailImagePriorityCount = 0;
         var color = getColor(e.cat);
         var secs = curCat === '全部' ? e.sections : e.sections.filter(function(s) {
             return s.cat === curCat;
@@ -3328,53 +3176,27 @@
     function spotHTML(it, sid) {
         var imgs = (it.images || []).map(function(img, idx) {
             var del = isEd ? '<button class="sc-img-del" onclick="delImg(\'' + it.id + '\',' + idx + ')">✕</button>' : '';
-            var isTarget = _pendingTagScroll === it.id;
-            var isPriority = isTarget || _detailImagePriorityCount < 2;
-            _detailImagePriorityCount++;
-            // 只提高目標卡片與前兩張圖片的載入優先權，其他圖片仍延遲載入，避免同時搶占網路。
-            return '<div class="sc-img-wrap"><img class="sc-img" src="' + esc(img) + '" loading="' + (isPriority ? 'eager' : 'lazy') + '" decoding="async" fetchpriority="' + (isPriority ? 'high' : 'auto') + '" onclick="viewImg(\'' + esc(img) + '\')" onerror="this.parentElement.style.display=\'none\'" alt="">' + del + '</div>';
+            return '<div class="sc-img-wrap"><img class="sc-img" src="' + esc(img) + '" loading="lazy" onclick="viewImg(\'' + esc(img) + '\')" onerror="this.parentElement.style.display=\'none\'" alt="">' + del + '</div>';
         }).join('');
         var imgAdd = canWrite() ? '<div class="sc-img-add" onclick="trigImg(\'' + it.id + '\')"><span>＋</span> 新增圖片網址</div>' : '';
         var hasPinned = it.lat != null && it.lng != null;
         var locH = '';
-        var mapLinks = Array.isArray(it.mapLinks) ? it.mapLinks : (it.mapUrl ? [{
-            label: it.name + ' — 地圖',
-            url: it.mapUrl
-        }] : []);
-        var mapRows = mapLinks.filter(function(link) {
-            return link && link.url;
-        }).map(function(link, idx) {
-            var label = link.label || it.name + ' — 地圖';
-            var del = isEd ? '<button class="bm-del" onclick="removeSpotLink(\'' + sid + '\',\'' + it.id + '\',\'mapLinks\',' + idx + ')">✕</button>' : '';
-            var edit = isEd ? '<div class="link-edit-fields"><input class="map-combo-inp" value="' + esc(label) + '" placeholder="連結名稱" onchange="editSpotLink(\'' + sid + '\',\'' + it.id + '\',\'mapLinks\',' + idx + ',\'label\',this.value)"><input class="map-combo-inp" value="' + esc(link.url) + '" placeholder="地圖網址" onchange="editSpotLink(\'' + sid + '\',\'' + it.id + '\',\'mapLinks\',' + idx + ',\'url\',this.value)"></div>' : '';
-            return '<div class="bm"><a class="bm-link" href="' + esc(link.url) + '" target="_blank" rel="noopener"><div class="bm-ico">📍</div><div class="bm-body"><div class="bm-title">' + esc(label) + '</div><div class="bm-url">' + esc(link.url) + '</div></div></a>' + del + '</div>' + edit;
-        }).join('');
         if (isEd) {
+            var bmH = it.mapUrl ? '<a class="bm" href="' + esc(it.mapUrl) + '" target="_blank" rel="noopener"><div class="bm-ico">📍</div><div class="bm-body"><div class="bm-title">' + esc(it.name) + ' — 地圖</div><div class="bm-url">' + esc(it.mapUrl) + '</div></div><button class="bm-del" onclick="event.preventDefault();event.stopPropagation();setItField(\'' + sid + '\',\'' + it.id + '\',\'mapUrl\',\'\')">✕</button></a>' : '';
             var pinH = hasPinned ? '<div class="pin-ok">✓ 已標示座標（' + it.lat.toFixed(4) + ', ' + it.lng.toFixed(4) + '）<button onclick="clearSpotPin(\'' + it.id + '\',\'' + sid + '\')">移除</button></div>' : '';
-            locH = mapRows + '<div class="map-combo"><input class="map-combo-inp" id="sli-' + it.id + '" type="text" placeholder="🗺 輸入地名搜尋 / 貼上 Maps URL" oninput="onSpotLocInput(\'' + it.id + '\',\'' + sid + '\');" onblur="handleUrlBlur(\'' + it.id + '\',\'' + sid + '\')" onkeydown="if(event.key===\'Enter\')handleUrlBlur(\'' + it.id + '\',\'' + sid + '\')"><div class="map-combo-drop" id="sld-' + it.id + '"></div></div><button class="ico" style="margin-top:5px" onclick="addSpotLink(\'' + sid + '\',\'' + it.id + '\',\'mapLinks\')">＋ 新增地圖連結</button>' + pinH;
+            locH = bmH + '<div class="map-combo"><input class="map-combo-inp" id="sli-' + it.id + '" type="text" placeholder="🗺 輸入地名搜尋 / 貼上 Maps URL" oninput="onSpotLocInput(\'' + it.id + '\',\'' + sid + '\');" onblur="handleUrlBlur(\'' + it.id + '\',\'' + sid + '\')" onkeydown="if(event.key===\'Enter\')handleUrlBlur(\'' + it.id + '\',\'' + sid + '\')"><div class="map-combo-drop" id="sld-' + it.id + '"></div></div>' + pinH;
         } else {
-            if (mapRows)
-                locH = mapRows;
+            if (it.mapUrl)
+                locH = '<a class="bm" href="' + esc(it.mapUrl) + '" target="_blank" rel="noopener"><div class="bm-ico">📍</div><div class="bm-body"><div class="bm-title">' + esc(it.name) + ' — 地圖</div><div class="bm-url">' + esc(it.mapUrl) + '</div></div></a>';
             else if (hasPinned)
                 locH = '<div class="pin-ok">📍 地圖已標示</div>';
         }
         var srcH = '';
-        var sourceLinks = Array.isArray(it.sourceLinks) ? it.sourceLinks : (it.source ? [{
-            label: '資料來源',
-            url: it.source
-        }] : []);
-        var sourceRows = sourceLinks.filter(function(link) {
-            return link && link.url;
-        }).map(function(link, idx) {
-            var label = link.label || '資料來源 ' + (idx + 1);
-            var del = isEd ? '<button onclick="removeSpotLink(\'' + sid + '\',\'' + it.id + '\',\'sourceLinks\',' + idx + ')" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:11px">✕</button>' : '';
-            var edit = isEd ? '<div class="link-edit-fields"><input class="map-combo-inp" value="' + esc(label) + '" placeholder="來源名稱（例如：官方網站）" onchange="editSpotLink(\'' + sid + '\',\'' + it.id + '\',\'sourceLinks\',' + idx + ',\'label\',this.value)"><input class="map-combo-inp" value="' + esc(link.url) + '" placeholder="來源網址" onchange="editSpotLink(\'' + sid + '\',\'' + it.id + '\',\'sourceLinks\',' + idx + ',\'url\',this.value)"></div>' : '';
-            return '<div class="source-row">📎 <a href="' + esc(link.url) + '" target="_blank" rel="noopener">' + esc(label) + '</a>' + del + '</div>' + edit;
-        }).join('');
-        if (isEd)
-            srcH = sourceRows + '<button class="ico" style="margin-top:5px" onclick="addSpotLink(\'' + sid + '\',\'' + it.id + '\',\'sourceLinks\')">＋ 新增資料來源</button>';
-        else if (sourceRows)
-            srcH = '<div class="source-row">資料來源：</div>' + sourceRows;
+        if (isEd) {
+            srcH = it.source ? '<div class="source-row">📎 資料來源：<a href="' + esc(it.source) + '" target="_blank">' + esc(it.source) + '</a><button onclick="setItField(\'' + sid + '\',\'' + it.id + '\',\'source\',\'\')" style="background:none;border:none;color:var(--tx3);cursor:pointer;font-size:11px;margin-left:4px">✕</button></div>' : '<input class="map-combo-inp" type="text" placeholder="📎 資料來源網址（選填）" onblur="setItField(\'' + sid + '\',\'' + it.id + '\',\'source\',this.value)">';
+        } else if (it.source) {
+            srcH = '<div class="source-row">📎 資料來源：<a href="' + esc(it.source) + '" target="_blank">' + esc(it.source) + '</a></div>';
+        }
         var tagsH = '';
         var tagItems = (it.tags || []).map(function(t) {
             var del = isEd ? '<button class="tag-del" onclick="removeTag(\'' + sid + '\',\'' + it.id + '\',\'' + t + '\')">×</button>' : '';
@@ -3423,96 +3245,10 @@
             })[0];
         if (it) {
             it[f] = v;
-            if (f === 'mapUrl') {
-                if (!Array.isArray(it.mapLinks))
-                    it.mapLinks = [];
-                if (v) {
-                    if (it.mapLinks.length)
-                        it.mapLinks[0].url = v;
-                    else
-                        it.mapLinks.push({
-                            label: it.name + ' — 地圖',
-                            url: v
-                        });
-                } else
-                    it.mapLinks = [];
-            }
-            if (f === 'source') {
-                if (!Array.isArray(it.sourceLinks))
-                    it.sourceLinks = [];
-                if (v) {
-                    if (it.sourceLinks.length)
-                        it.sourceLinks[0].url = v;
-                    else
-                        it.sourceLinks.push({
-                            label: '資料來源',
-                            url: v
-                        });
-                } else
-                    it.sourceLinks = [];
-            }
             save();
             if (f === 'mapUrl' || f === 'source')
                 renderDetail();
         }
-    }
-    function addSpotLink(sid, iid, field) {
-        var e = fE(curId),
-            s = fS(e, sid),
-            it = s && s.items.filter(function(x) {
-                return x.id === iid;
-            })[0];
-        if (!it)
-            return;
-        if (!Array.isArray(it[field]))
-            it[field] = [];
-        it[field].push({
-            label: field === 'mapLinks' ? it.name + ' — 地圖' : '資料來源 ' + (it[field].length + 1),
-            url: ''
-        });
-        save();
-        renderDetail();
-    }
-    function editSpotLink(sid, iid, field, index, key, value) {
-        var e = fE(curId),
-            s = fS(e, sid),
-            it = s && s.items.filter(function(x) {
-                return x.id === iid;
-            })[0];
-        if (!it || !Array.isArray(it[field]) || !it[field][index])
-            return;
-        value = (value || '').trim();
-        it[field][index][key] = value;
-        if (field === 'mapLinks')
-            it.mapUrl = (it.mapLinks.find(function(x) {
-                return x.url;
-            }) || {}).url || '';
-        if (field === 'sourceLinks')
-            it.source = (it.sourceLinks.find(function(x) {
-                return x.url;
-            }) || {}).url || '';
-        save();
-        renderDetail();
-    }
-    function removeSpotLink(sid, iid, field, index) {
-        var e = fE(curId),
-            s = fS(e, sid),
-            it = s && s.items.filter(function(x) {
-                return x.id === iid;
-            })[0];
-        if (!it || !Array.isArray(it[field]))
-            return;
-        it[field].splice(index, 1);
-        if (field === 'mapLinks')
-            it.mapUrl = (it.mapLinks.find(function(x) {
-                return x.url;
-            }) || {}).url || '';
-        if (field === 'sourceLinks')
-            it.source = (it.sourceLinks.find(function(x) {
-                return x.url;
-            }) || {}).url || '';
-        save();
-        renderDetail();
     }
     function togMaybe(sid, iid) {
         if (!canWrite())
@@ -3608,77 +3344,17 @@
         }
     }
 
-    // ══ DRAG：桌面原生拖曳＋手機觸控拖曳，支援跨分類 ══
+    // ══ DRAG ══
     (function() {
         var _sid = null,
-            _iid = null,
-            _touchCard = null,
-            _touchActive = false,
-            _startX = 0,
-            _startY = 0;
-        function clearDrag() {
-            if (_touchCard)
-                _touchCard.style.opacity = '';
-            document.querySelectorAll('.sc.drag-over').forEach(function(el) {
-                el.classList.remove('drag-over');
-            });
-            _sid = null;
             _iid = null;
-            _touchCard = null;
-            _touchActive = false;
-        }
-        function moveItemTo(target, before) {
-            if (!_iid || !target || !target.dataset.sid || !target.dataset.iid || target.dataset.iid === _iid)
-                return false;
-            var e = fE(curId);
-            if (!e)
-                return false;
-            var from = fS(e, _sid),
-                to = fS(e, target.dataset.sid);
-            if (!from || !to)
-                return false;
-            var fi = from.items.findIndex(function(x) {
-                return x.id === _iid;
-            });
-            var ti = to.items.findIndex(function(x) {
-                return x.id === target.dataset.iid;
-            });
-            if (fi < 0 || ti < 0)
-                return false;
-            var item = from.items.splice(fi, 1)[0];
-            // 同一分類先移除再計算插入位置，避免索引位移造成順序錯誤
-            if (from === to) {
-                ti = to.items.findIndex(function(x) {
-                    return x.id === target.dataset.iid;
-                });
-            }
-            if (ti < 0) {
-                from.items.splice(fi, 0, item);
-                return false;
-            }
-            var rect = target.getBoundingClientRect();
-            var insertBefore = before;
-            if (insertBefore === null || insertBefore === undefined)
-                insertBefore = (rect.height ? (window._dragClientY < rect.top + rect.height / 2) : true);
-            var index = ti + (insertBefore ? 0 : 1);
-            to.items.splice(index, 0, item);
-            save();
-            renderDetail();
-            return true;
-        }
         document.addEventListener('dragstart', function(ev) {
             var sc = ev.target.closest && ev.target.closest('.sc[draggable]');
             if (!sc)
                 return;
             _sid = sc.dataset.sid;
             _iid = sc.dataset.iid;
-            window._dragClientY = ev.clientY;
-            if (ev.dataTransfer) {
-                ev.dataTransfer.effectAllowed = 'move';
-                try {
-                    ev.dataTransfer.setData('text/plain', _iid);
-                } catch (e) {}
-            }
+            ev.dataTransfer.effectAllowed = 'move';
             setTimeout(function() {
                 if (sc)
                     sc.style.opacity = '.4';
@@ -3688,16 +3364,15 @@
             var sc = ev.target.closest && ev.target.closest('.sc');
             if (sc)
                 sc.style.opacity = '';
-            clearDrag();
+            document.querySelectorAll('.sc.drag-over').forEach(function(el) {
+                el.classList.remove('drag-over');
+            });
         });
         document.addEventListener('dragover', function(ev) {
             var sc = ev.target.closest && ev.target.closest('.sc[draggable]');
             if (!sc || sc.dataset.iid === _iid)
                 return;
             ev.preventDefault();
-            window._dragClientY = ev.clientY;
-            if (ev.dataTransfer)
-                ev.dataTransfer.dropEffect = 'move';
             document.querySelectorAll('.sc.drag-over').forEach(function(el) {
                 el.classList.remove('drag-over');
             });
@@ -3713,71 +3388,26 @@
             if (!sc || !_iid || sc.dataset.iid === _iid)
                 return;
             ev.preventDefault();
-            ev.stopPropagation();
-            var rect = sc.getBoundingClientRect();
-            window._dragClientY = ev.clientY;
-            moveItemTo(sc, ev.clientY < rect.top + rect.height / 2);
-            clearDrag();
-        });
-        // iPhone/iPad 觸控：只從卡片左側的 ⠿ 把手開始拖曳，避免影響卡片內輸入欄位及頁面一般滑動
-        document.addEventListener('touchstart', function(ev) {
-            var handle = ev.target.closest && ev.target.closest('.sc-drag');
-            if (!handle || !isEd)
+            sc.classList.remove('drag-over');
+            if (sc.dataset.sid !== _sid)
                 return;
-            var card = handle.closest('.sc[draggable]');
-            if (!card)
+            var e = fE(curId),
+                s = fS(e, _sid);
+            if (!s)
                 return;
-            var t = ev.touches && ev.touches[0];
-            if (!t)
-                return;
-            _sid = card.dataset.sid;
-            _iid = card.dataset.iid;
-            _touchCard = card;
-            _touchActive = false;
-            _startX = t.clientX;
-            _startY = t.clientY;
-        }, {
-            passive: true
-        });
-        document.addEventListener('touchmove', function(ev) {
-            if (!_iid || !_touchCard)
-                return;
-            var t = ev.touches && ev.touches[0];
-            if (!t)
-                return;
-            if (!_touchActive && Math.abs(t.clientY - _startY) + Math.abs(t.clientX - _startX) < 8)
-                return;
-            _touchActive = true;
-            ev.preventDefault();
-            _touchCard.style.opacity = '.55';
-            var under = document.elementFromPoint(t.clientX, t.clientY);
-            var target = under && under.closest ? under.closest('.sc[draggable]') : null;
-            document.querySelectorAll('.sc.drag-over').forEach(function(el) {
-                el.classList.remove('drag-over');
-            });
-            if (target && target.dataset.iid !== _iid)
-                target.classList.add('drag-over');
-        }, {
-            passive: false
-        });
-        document.addEventListener('touchend', function(ev) {
-            if (!_iid || !_touchCard)
-                return;
-            if (_touchActive) {
-                var t = ev.changedTouches && ev.changedTouches[0];
-                var under = t && document.elementFromPoint(t.clientX, t.clientY);
-                var target = under && under.closest ? under.closest('.sc[draggable]') : null;
-                if (target && target.dataset.iid !== _iid) {
-                    var rect = target.getBoundingClientRect();
-                    moveItemTo(target, t.clientY < rect.top + rect.height / 2);
-                }
+            var fi = -1,
+                ti = -1;
+            for (var i = 0; i < s.items.length; i++) {
+                if (s.items[i].id === _iid)
+                    fi = i;
+                if (s.items[i].id === sc.dataset.iid)
+                    ti = i;
             }
-            clearDrag();
-        }, {
-            passive: true
-        });
-        document.addEventListener('touchcancel', clearDrag, {
-            passive: true
+            if (fi < 0 || ti < 0 || fi === ti)
+                return;
+            s.items.splice(ti, 0, s.items.splice(fi, 1)[0]);
+            save();
+            renderDetail();
         });
     })();
 
